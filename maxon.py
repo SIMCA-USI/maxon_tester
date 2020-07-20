@@ -22,13 +22,16 @@ class Maxon:
         self.freq = 0
         self.rel_speed = 10
         self.maxon_enabled = False
+        self.dig_3 = False
+        self.dig_4 = False
         self.dict_options = {
             '1': self.init_device,
             '2': self.enable,
             '3': self.disable,
             '4': self.turn_abs,
             '5': self.turn_rel,
-            'g': self.fault_reset,
+            '6': self.fault_reset,
+            '7': self.salidas_digitales,
             '0': self.no_function
         }
 
@@ -109,20 +112,18 @@ class Maxon:
         [self.queue.put(frame) for frame in epos_motor.init_device(self.cobid)]
 
     def turn_abs(self):
-        target = input('Introduzca numero de grados: ') or 0
-        try:
-            target = int(target)
-            [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, target, True)]
-        except ValueError:
-            print('No es un valor válido')
+        lis = keyboard.Listener(on_press=self.on_press_esc)
+        lis.start()  # start to listen on a separate thread
+        while lis.is_alive():
+            target = input('Introduzca numero de grados: ') or 0
+            if lis.is_alive():
+                try:
+                    target = int(target)
+                    [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, target, True)]
+                except ValueError:
+                    print('No es un valor válido')
 
     def turn_rel(self):
-        # target = input('Introduzca numero de grados: ') or 0
-        # try:
-        #     target = int(target)
-        #     [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, target)]
-        # except ValueError:
-        #     print('No es un valor válido')
         os.system('cls')
         print('Utilice las flechas para girar <- ->')
         print('Press esc para salir')
@@ -139,6 +140,10 @@ class Maxon:
             [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, -self.rel_speed)]
         elif key == keyboard.Key.right:
             [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, self.rel_speed)]
+
+    def on_press_esc(self, key):
+        if key == keyboard.Key.esc:
+            return False  # stop listener
 
     def enable(self):
         try:
@@ -164,6 +169,39 @@ class Maxon:
             [self.queue.put(frame) for frame in epos_motor.fault_reset(self.cobid)]
         except Exception:
             print(format_exc())
+            
+    def salidas_digitales(self):
+        lis = keyboard.Listener(on_press=self.on_press_esc)
+        lis.start()  # start to listen on a separate thread
+        while lis.is_alive():
+            os.system('cls')  # Clear console
+            print('Para encender o apagar una salida digital indique el numero de salida')
+            print('Para salir pulse Esc')
+            print('Estado de las salidas digitales:')
+            print('Digital 3: {}'.format('on' if self.dig_3 else 'off'))
+            print('Digital 4: {}'.format('on' if self.dig_4 else 'off'))
+            target = input('Introduzca salida digital: ') or 0
+            if lis.is_alive():
+                try:
+                    target = int(target)
+                    if target == 3:
+                        if self.dig_3:
+                            [self.queue.put(frame) for frame in epos_motor.disable_digital_3(self.cobid)]
+                            self.dig_3 = False
+                        else:
+                            [self.queue.put(frame) for frame in epos_motor.enable_digital_3(self.cobid)]
+                            self.dig_3 = True
+                    elif target == 4:
+                        if self.dig_4:
+                            [self.queue.put(frame) for frame in epos_motor.disable_digital_4(self.cobid)]
+                            self.dig_4 = False
+                        else:
+                            [self.queue.put(frame) for frame in epos_motor.enable_digital_4(self.cobid)]
+                            self.dig_4 = True
+                    else:
+                        raise ValueError('No existe esta salida digital')
+                except ValueError as ve:
+                    print(ve)
 
     @staticmethod
     def no_function():
@@ -179,6 +217,7 @@ class Maxon:
         print('4: Girar motor a n grados (absolutos)')
         print('5: Girar motor a n grados (relativos)')
         print('6: Fault reset')
+        print('7: Salidas digitales')
         option = input('==>') or '0'
         self.dict_options.get(option, self.dict_options['0'])()
 
