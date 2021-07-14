@@ -2,13 +2,13 @@ import os
 import yaml
 import queue
 from queue import Queue
-import socket
+# import socket
 import threading
 from time import sleep
 import epos_motor
 from traceback import format_exc
 from pynput import keyboard
-
+from connection import Connection
 
 class Maxon:
     def __init__(self):
@@ -16,7 +16,9 @@ class Maxon:
         self.port = None
         self.conexion_mode = None
         self.cobid = None
-        self.socket = None
+        # self.socket = None
+        self.connection = None
+        self.steering_value=0
         self.queue = Queue()
         self.sender_tread = None
         self.freq = 0
@@ -82,9 +84,22 @@ class Maxon:
         print('rel_speed: {}'.format(self.rel_speed))
         input()
 
+    def decode_can(self, msg):
+        try:
+            COBID = (msg[2] << 8) + msg[3]
+            if COBID == 0x305:
+                # os.system('cls')
+                data = struct.unpack('>h', msg[4:6])[0]
+                # print(msg)
+                value = data * 0.13
+                self.steering_value = value
+        except Exception as e:
+            pass
+
     def connect(self):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(('', self.port + 1))
+        self.connection = Connection(name='Connection', mode=self.conexion_mode, ip=self.ip, port=self.port, deco_function=self.decode_can)
+        # self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # self.socket.bind(('', self.port + 1))
 
     def start_sender(self):
         self.connect()
@@ -98,13 +113,14 @@ class Maxon:
                 # if self._log_send.value:
                 #     self.logger.debug(f"{hexlify(msg)} --> {self.ip.value}:{self.port.value}")
                 assert len(msg) == 13
-                self.socket.sendto(msg, (self.ip, self.port))
+                self.connection.send(msg)
+                # self.socket.sendto(msg, (self.ip, self.port))
                 sleep(1/self.freq)
             except queue.Empty:
                 sleep(1/10)
-            except socket.timeout:
-                print('time out')
-                # self.logger.warning(f"Could not send message after {self.time_out_s.value}s")
+            # except socket.timeout:
+            #     print('time out')
+            #     # self.logger.warning(f"Could not send message after {self.time_out_s.value}s")
             except Exception as exc:
                 print(exc.message)
 
