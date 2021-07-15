@@ -85,16 +85,17 @@ class Maxon:
         input()
 
     def decode_can(self, msg):
-        try:
-            COBID = (msg[2] << 8) + msg[3]
-            if COBID == 0x305:
-                # os.system('cls')
-                data = struct.unpack('>h', msg[4:6])[0]
-                # print(msg)
-                value = data * 0.13
-                self.steering_value = value
-        except Exception as e:
-            pass
+        pass
+        # try:
+        #     COBID = (msg[2] << 8) + msg[3]
+        #     if COBID == 0x305:
+        #         # os.system('cls')
+        #         data = struct.unpack('>h', msg[4:6])[0]
+        #         # print(msg)
+        #         value = data * 0.13
+        #         self.steering_value = value
+        # except Exception as e:
+        #     pass
 
     def connect(self):
         self.connection = Connection(name='Connection', mode=self.conexion_mode, ip=self.ip, port=self.port, deco_function=self.decode_can)
