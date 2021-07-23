@@ -1,7 +1,8 @@
 #Configuracion test maxon 1
-conexion_mode: udp #tcp/udp
-ip: 192.168.0.6
+conexion_mode: tcp #tcp/udp
+ip: 192.168.0.7
 port: 10001
-cobid: 1 #1 Freno/ 2? /3 Volante
+cobid: 3 #1 Freno/ 2? /3 Volante
 freq: 30 # Hz
 rel_speed: 50
+rpm: 10000 #1-25000

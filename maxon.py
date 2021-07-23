@@ -26,6 +26,7 @@ class Maxon:
         self.maxon_enabled = False
         self.dig_3 = False
         self.dig_4 = False
+        self.rpm = 5000
         self.dict_options = {
             '1': self.init_device,
             '2': self.enable,
@@ -46,6 +47,7 @@ class Maxon:
         self.cobid = parameters['cobid']
         self.freq = parameters['freq']
         self.rel_speed = parameters['rel_speed']
+        self.rpm = parameters['rpm']
         self.print_parameters()
 
     @staticmethod
@@ -85,17 +87,16 @@ class Maxon:
         input()
 
     def decode_can(self, msg):
-        pass
-        # try:
-        #     COBID = (msg[2] << 8) + msg[3]
-        #     if COBID == 0x305:
-        #         # os.system('cls')
-        #         data = struct.unpack('>h', msg[4:6])[0]
-        #         # print(msg)
-        #         value = data * 0.13
-        #         self.steering_value = value
-        # except Exception as e:
-        #     pass
+        try:
+            COBID = (msg[2] << 8) + msg[3]
+            if COBID == 0x305:
+                # os.system('cls')
+                data = struct.unpack('>h', msg[4:6])[0]
+                # print(msg)
+                value = data * 0.13
+                self.steering_value = value
+        except Exception as e:
+            pass
 
     def connect(self):
         self.connection = Connection(name='Connection', mode=self.conexion_mode, ip=self.ip, port=self.port, deco_function=self.decode_can)
@@ -126,7 +127,7 @@ class Maxon:
                 print(exc.message)
 
     def init_device(self):
-        [self.queue.put(frame) for frame in epos_motor.init_device(self.cobid)]
+        [self.queue.put(frame) for frame in epos_motor.init_device(self.cobid, self.rpm)]
 
     def turn_abs(self):
         lis = keyboard.Listener(on_press=self.on_press_esc)
@@ -157,6 +158,8 @@ class Maxon:
             [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, -self.rel_speed)]
         elif key == keyboard.Key.right:
             [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, self.rel_speed)]
+        elif key == keyboard.Key.space:
+            [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, 0, True)]
 
     def on_press_esc(self, key):
         if key == keyboard.Key.esc:

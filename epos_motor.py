@@ -91,11 +91,11 @@ def disable_digital_3(node: int):
         return [make_can_frame(node, 0x2078, 1, 0x0000)]
 
 
-def init_device(node: int):
+def init_device(node: int, rpm=0x1388):
     return [
         make_can_frame(node, 0x6040, 0, 0x0080),
         make_can_frame(node, 0x6060, 0, 0x01),  # operation mode=profile position
-        make_can_frame(node, 0x6081, 0, 0x1388),  # rpm speed 1-25000 = 10_000 rpm
+        make_can_frame(node, 0x6081, 0, rpm),  # rpm speed 1-25000 = 10_000 rpm
         make_can_frame(node, 0x6040, 0, EPOSCommand.SHUTDOWN),  # ????
         make_can_frame(node, 0x6040, 0, EPOSCommand.SWITCH_ON_AND_ENABLE),
         make_can_frame(node, 0x2078, 2, 0x3000)  # DO configuration
