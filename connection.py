@@ -104,6 +104,7 @@ class Connection:
                 self.connecting = True
                 if self.socket is not None:
                     try:
+                        self.socket.detach()
                         self.socket.close()
                     except (socket.error, AttributeError):
                         pass
@@ -129,6 +130,7 @@ class Connection:
             except BrokenPipeError as e:
                 try:
                     self.connected = False
+                    self.socket.detach()
                     self.socket.close()
                 finally:
                     self.reconnect()
@@ -140,24 +142,30 @@ class Connection:
                 self.logger(f'Format {format_exc()}')
 
     def recv_tcp(self):
-        while not self.shutdown_flag:
-            try:
-                if self.connected:
-                    data = self.socket.recv(self.read_len)
+        try:
+            while not self.shutdown_flag:
+                try:
+                    if self.connected:
+                        data = self.socket.recv(self.read_len)
+                    else:
+                        if not self.connecting:
+                            self.logger('Request reconnection')
+                            self.reconnect()
+                        continue
+                except socket.timeout:
+                    pass
+                except OSError as e:
+                    if not self.shutdown_flag:
+                        self.logger(f' OSERROR in recv: {e}')
+                        self.shutdown()
+                except Exception as e:
+                    self.logger(f' Exception in recv: {e}')
                 else:
-                    if not self.connecting:
-                        self.logger('Request reconnection')
-                        self.reconnect()
-                    continue
-            except socket.timeout:
-                pass
-            except OSError as e:
-                self.logger(f' OSERROR in recv: {e}')
-            except Exception as e:
-                self.logger(f' Exception in recv: {e}')
-            else:
-                self.deco_function(data)
-                self.t_msgs_recv += 1
+                    self.deco_function(data)
+                    self.t_msgs_recv += 1
+        finally:
+            if not self.shutdown_flag:
+                self.shutdown()
 
     def shutdown_tcp(self):
         try:
@@ -165,6 +173,7 @@ class Connection:
             self.shutdown_flag = True
             self.connected = False
             if self.socket is not None:
+                self.socket.detach()
                 self.socket.close()
             self.status = 'shutdown'
         except Exception:

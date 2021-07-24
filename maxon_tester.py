@@ -1,25 +1,15 @@
-from maxon import Maxon
+from maxon import Maxon, Window
+from PyQt5 import QtWidgets
+import sys
 
 
 def main():
     try:
-        maxon = Maxon()
-        try:
-            config_file = maxon.select_config()
-            maxon.load_config(config_file)
-        except ValueError as err:
-            print(err)
-            m = input('¿Definir parametros maualmente? (s/N):') or 'N'
-            if m == 's' or m == 'S':
-                maxon.manual_parameters()
-            else:
-                exit(0)
-        maxon.start_sender()
-        while True:
-            maxon.menu()
-
-    except ValueError as err:
-        print(err)
+        app = QtWidgets.QApplication(sys.argv)
+        gui = Window()
+        maxon = Maxon(main_window=gui)
+        gui.show()
+        app.exec_()
     except KeyboardInterrupt:
         print('Keyboard interrupt')
 

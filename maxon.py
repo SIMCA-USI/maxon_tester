@@ -1,4 +1,6 @@
 import os
+import struct
+
 import yaml
 import queue
 from queue import Queue
@@ -9,19 +11,46 @@ import epos_motor
 from traceback import format_exc
 from pynput import keyboard
 from connection import Connection
+from PyQt5.QtWidgets import QApplication, QMainWindow
+from interface_maxon import Ui_InterfazMAXON
+
+
+class Window(QMainWindow):
+    def __init__(self, parent=None):
+        super(Window, self).__init__(parent)
+        self.ui = Ui_InterfazMAXON()
+        self.ui.setupUi(self)
+
 
 class Maxon:
-    def __init__(self):
-        self.ip = None
-        self.port = None
-        self.conexion_mode = None
-        self.cobid = None
+    def __init__(self, main_window: Window = None):
+        self.window = main_window
+        self.window.ui.Conectar.clicked.connect(self.connect)
+        self.window.ui.init_button.clicked.connect(self.init_device)
+        self.window.ui.fault_button.clicked.connect(self.fault_reset)
+        self.window.ui.enable_button.clicked.connect(self.enable)
+        self.window.ui.disable_button.clicked.connect(self.disable)
+        self.window.ui.rel_button.clicked.connect(self.rel)
+        self.window.ui.abs_button.clicked.connect(self.abs)
+        self.window.ui.girar_button.clicked.connect(self.turn_abs())
+
+        self.window.ui.giro_izq.clicked.connect(self.giro_izq)
+        self.window.ui.giro_dch.clicked.connect(self.giro_dch)
+        self.window.ui.enderezar.clicked.connect(self.enderezar)
+
+        self.window.ui.reset_rel.clicked.connect(self.reset_rel)
+
+        self.cobid = 3
         # self.socket = None
         self.connection = None
-        self.steering_value=0
+        self.steering_value = 0
         self.queue = Queue()
-        self.sender_tread = None
-        self.freq = 0
+        self.giro_relativo = 0
+        self.enable_send = False
+        self.sender_thread = threading.Thread(target=self.send, daemon=True, name='sender-thread')
+        self.sender_thread.start()
+        self.update_volante = threading.Thread(target=self.update_steering, daemon=True, name='update-steering')
+        self.freq = 50
         self.rel_speed = 10
         self.maxon_enabled = False
         self.dig_3 = False
@@ -37,54 +66,14 @@ class Maxon:
             '7': self.salidas_digitales,
             '0': self.no_function
         }
-
-    def load_config(self, path: str):
-        with open(path) as f:
-            parameters = yaml.load(f, Loader=yaml.FullLoader)
-        self.ip = parameters['ip']
-        self.port = parameters['port']
-        self.conexion_mode = parameters['conexion_mode']
-        self.cobid = parameters['cobid']
-        self.freq = parameters['freq']
-        self.rel_speed = parameters['rel_speed']
-        self.rpm = parameters['rpm']
-        self.print_parameters()
-
-    @staticmethod
-    def select_config():
-        os.system('cls')  # Clear console
-        files = os.listdir('./config')
-        yamlfiles = [n for n in files if n.__contains__('.yaml')]
-        if len(yamlfiles) > 1:
-            print('Selecciona fichero de configuración:')
-            i = 0
-            for file in yamlfiles:
-                print('{}: {}'.format(i, file))
-                i += 1
-            try:
-                value = input('Seleccione un fichero de configuración (0,1,2,...): ')
-                return 'config/' + yamlfiles[int(value)]
-            except Exception:
-                raise ValueError('El fichero seleccionado no es correcto')
-        elif len(yamlfiles) == 1:
-            print('Archivo de configuración cargado automáticamente: {}'.format(yamlfiles[0]))
-            return 'config/' + yamlfiles[0]
-        else:
-            raise ValueError('No se encontrarion ficheros de configuración')
-
-    def manual_parameters(self):
-        raise ValueError('Function not implemented')
-
-    def print_parameters(self):
-        os.system('cls')
-        print('La configuracion cargada es:')
-        print('ip: {}'.format(self.ip))
-        print('port: {}'.format(self.port))
-        print('conexion_mode: {}'.format(self.conexion_mode))
-        print('cobid: {}'.format(self.cobid))
-        print('freq: {}'.format(self.freq))
-        print('rel_speed: {}'.format(self.rel_speed))
-        input()
+        self.dict_slider = {
+            0: 1,
+            1: 5,
+            2: 10,
+            3: 20,
+            4: 50,
+            5: 360,
+        }
 
     def decode_can(self, msg):
         try:
@@ -99,47 +88,70 @@ class Maxon:
             pass
 
     def connect(self):
-        self.connection = Connection(name='Connection', mode=self.conexion_mode, ip=self.ip, port=self.port, deco_function=self.decode_can)
-        # self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # self.socket.bind(('', self.port + 1))
-
-    def start_sender(self):
-        self.connect()
-        self.sender_tread = threading.Thread(target=self.send, daemon=True, name='sender-thread')
-        self.sender_tread.start()
+        if self.connection is None:
+            ip = self.window.ui.ip.text()
+            ip = '127.0.0.1'
+            port = self.window.ui.puerto.text()
+            self.connection = Connection(name='Connection', mode='tcp', ip=ip, port=int(port),
+                                         deco_function=self.decode_can)
+            self.enable_send = True
+            self.window.ui.Conectar.setText('Desconectar')
+            self.window.ui.frame_general.setVisible(True)
+            # self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # self.socket.bind(('', self.port + 1))
+        else:
+            self.enable_send = False
+            self.connection.shutdown()
+            self.connection = None
+            self.window.ui.Conectar.setText('Conectar')
+            self.window.ui.frame_general.setVisible(False)
 
     def send(self):
         while True:
             try:
-                msg = self.queue.get_nowait()
-                # if self._log_send.value:
-                #     self.logger.debug(f"{hexlify(msg)} --> {self.ip.value}:{self.port.value}")
-                assert len(msg) == 13
-                self.connection.send(msg)
-                # self.socket.sendto(msg, (self.ip, self.port))
-                sleep(1/self.freq)
+                if self.enable_send:
+                    msg = self.queue.get_nowait()
+                    # if self._log_send.value:
+                    #     self.logger.debug(f"{hexlify(msg)} --> {self.ip.value}:{self.port.value}")
+                    assert len(msg) == 13
+                    self.connection.send(msg)
+                    # self.socket.sendto(msg, (self.ip, self.port))
+                sleep(1 / self.freq)
             except queue.Empty:
-                sleep(1/10)
+                sleep(1 / 10)
             # except socket.timeout:
             #     print('time out')
             #     # self.logger.warning(f"Could not send message after {self.time_out_s.value}s")
             except Exception as exc:
-                print(exc.message)
+                print('exception')
+                print(exc)
 
     def init_device(self):
         [self.queue.put(frame) for frame in epos_motor.init_device(self.cobid, self.rpm)]
 
     def turn_abs(self):
-        lis = keyboard.Listener(on_press=self.on_press_esc)
-        lis.start()  # start to listen on a separate thread
-        while lis.is_alive():
-            target = input('Introduzca numero de grados: ') or 0
-            if lis.is_alive():
-                try:
-                    target = int(target)
-                    [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, target, True)]
-                except ValueError:
-                    print('No es un valor válido')
+        try:
+            target = int(self.window.ui.giro_text.text())
+            [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, target, True)]
+        except ValueError:
+            print('No es un valor válido')
+
+    def giro_izq(self):
+        giro = self.dict_options.get(self.window.ui.slider_giro.value(), self.dict_options['0'])()
+        self.giro_relativo -= giro
+        [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, -giro)]
+        self.window.ui.label_giro_relativo.setText(self.giro_relativo)
+
+    def giro_dch(self):
+        giro = self.dict_options.get(self.window.ui.slider_giro.value(), self.dict_options['0'])()
+        self.giro_relativo += giro
+        [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, giro)]
+        self.window.ui.label_giro_relativo.setText(self.giro_relativo)
+
+    def enderezar(self):
+        [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, -self.giro_relativo)]
+        self.giro_relativo = 0
+        self.window.ui.label_giro_relativo.setText(self.giro_relativo)
 
     def turn_rel(self):
         os.system('cls')
@@ -150,6 +162,11 @@ class Maxon:
         lis.start()  # start to listen on a separate thread
         while lis.is_alive():
             pass
+
+    def update_steering(self):
+        while(True):
+            self.window.ui.label_volante.setText(self.steering_value)
+            sleep(1/2)
 
     def on_press(self, key):
         if key == keyboard.Key.esc:
@@ -189,7 +206,25 @@ class Maxon:
             [self.queue.put(frame) for frame in epos_motor.fault_reset(self.cobid)]
         except Exception:
             print(format_exc())
-            
+
+    def reset_rel(self):
+        self.giro_relativo = 0
+
+    def rel(self):
+        if not self.window.ui.frame_rel.isVisible():
+            self.reset_rel()
+            self.window.ui.frame_rel.setVisible(True)
+            self.window.ui.frame_abs.setVisible(False)
+        else:
+            self.window.ui.frame_rel.setVisible(False)
+
+    def abs(self):
+        if not self.window.ui.frame_abs.isVisible():
+            self.window.ui.frame_rel.setVisible(False)
+            self.window.ui.frame_abs.setVisible(True)
+        else:
+            self.window.ui.frame_abs.setVisible(False)
+
     def salidas_digitales(self):
         lis = keyboard.Listener(on_press=self.on_press_esc)
         lis.start()  # start to listen on a separate thread
@@ -240,4 +275,3 @@ class Maxon:
         print('7: Salidas digitales')
         option = input('==>') or '0'
         self.dict_options.get(option, self.dict_options['0'])()
-
