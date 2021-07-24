@@ -13,6 +13,7 @@ from pynput import keyboard
 from connection import Connection
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from interface_maxon import Ui_InterfazMAXON
+import random
 
 
 class Window(QMainWindow):
@@ -32,7 +33,7 @@ class Maxon:
         self.window.ui.disable_button.clicked.connect(self.disable)
         self.window.ui.rel_button.clicked.connect(self.rel)
         self.window.ui.abs_button.clicked.connect(self.abs)
-        self.window.ui.girar_button.clicked.connect(self.turn_abs())
+        self.window.ui.girar_button.clicked.connect(self.turn_abs)
 
         self.window.ui.giro_izq.clicked.connect(self.giro_izq)
         self.window.ui.giro_dch.clicked.connect(self.giro_dch)
@@ -47,25 +48,16 @@ class Maxon:
         self.queue = Queue()
         self.giro_relativo = 0
         self.enable_send = False
-        self.sender_thread = threading.Thread(target=self.send, daemon=True, name='sender-thread')
-        self.sender_thread.start()
-        self.update_volante = threading.Thread(target=self.update_steering, daemon=True, name='update-steering')
         self.freq = 50
         self.rel_speed = 10
         self.maxon_enabled = False
         self.dig_3 = False
         self.dig_4 = False
         self.rpm = 5000
-        self.dict_options = {
-            '1': self.init_device,
-            '2': self.enable,
-            '3': self.disable,
-            '4': self.turn_abs,
-            '5': self.turn_rel,
-            '6': self.fault_reset,
-            '7': self.salidas_digitales,
-            '0': self.no_function
-        }
+        self.sender_thread = threading.Thread(target=self.send, daemon=True, name='sender-thread')
+        self.sender_thread.start()
+        self.update_volante = threading.Thread(target=self.update_steering, daemon=True, name='update-steering')
+        self.update_volante.start()
         self.dict_slider = {
             0: 1,
             1: 5,
@@ -84,6 +76,7 @@ class Maxon:
                 # print(msg)
                 value = data * 0.13
                 self.steering_value = value
+                # self.steering_value = random.randint(-350, 350) # Para pruebas
         except Exception as e:
             pass
 
@@ -137,46 +130,26 @@ class Maxon:
             print('No es un valor válido')
 
     def giro_izq(self):
-        giro = self.dict_options.get(self.window.ui.slider_giro.value(), self.dict_options['0'])()
+        giro = self.dict_slider.get(self.window.ui.slider_giro.value(), self.dict_slider[0])
         self.giro_relativo -= giro
         [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, -giro)]
-        self.window.ui.label_giro_relativo.setText(self.giro_relativo)
+        self.window.ui.label_giro_relativo.setText(str(self.giro_relativo))
 
     def giro_dch(self):
-        giro = self.dict_options.get(self.window.ui.slider_giro.value(), self.dict_options['0'])()
+        giro = self.dict_slider.get(self.window.ui.slider_giro.value(), self.dict_slider[0])
         self.giro_relativo += giro
         [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, giro)]
-        self.window.ui.label_giro_relativo.setText(self.giro_relativo)
+        self.window.ui.label_giro_relativo.setText(str(self.giro_relativo))
 
     def enderezar(self):
         [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, -self.giro_relativo)]
         self.giro_relativo = 0
-        self.window.ui.label_giro_relativo.setText(self.giro_relativo)
-
-    def turn_rel(self):
-        os.system('cls')
-        print('Utilice las flechas para girar <- ->')
-        print('Press esc para salir')
-
-        lis = keyboard.Listener(on_press=self.on_press)
-        lis.start()  # start to listen on a separate thread
-        while lis.is_alive():
-            pass
+        self.window.ui.label_giro_relativo.setText(str(self.giro_relativo))
 
     def update_steering(self):
         while(True):
-            self.window.ui.label_volante.setText(self.steering_value)
-            sleep(1/2)
-
-    def on_press(self, key):
-        if key == keyboard.Key.esc:
-            return False  # stop listener
-        elif key == keyboard.Key.left:
-            [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, -self.rel_speed)]
-        elif key == keyboard.Key.right:
-            [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, self.rel_speed)]
-        elif key == keyboard.Key.space:
-            [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, 0, True)]
+            self.window.ui.label_volante.setText(str(self.steering_value))
+            sleep(1/10)
 
     def on_press_esc(self, key):
         if key == keyboard.Key.esc:
@@ -257,21 +230,3 @@ class Maxon:
                         raise ValueError('No existe esta salida digital')
                 except ValueError as ve:
                     print(ve)
-
-    @staticmethod
-    def no_function():
-        print('Selecione una opcion valida')
-        input()
-
-    def menu(self):
-        os.system('cls')  # Clear console
-        print('Selecciona una opcion:')
-        print('1: Init device')
-        print('2: Enable device')
-        print('3: Disable device')
-        print('4: Girar motor a n grados (absolutos)')
-        print('5: Girar motor a n grados (relativos)')
-        print('6: Fault reset')
-        print('7: Salidas digitales')
-        option = input('==>') or '0'
-        self.dict_options.get(option, self.dict_options['0'])()

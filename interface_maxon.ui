@@ -21,9 +21,9 @@
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>80</y>
+      <y>10</y>
       <width>761</width>
-      <height>501</height>
+      <height>581</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -36,7 +36,7 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>10</y>
+       <y>80</y>
        <width>151</width>
        <height>51</height>
       </rect>
@@ -49,7 +49,7 @@
      <property name="geometry">
       <rect>
        <x>0</x>
-       <y>70</y>
+       <y>140</y>
        <width>191</width>
        <height>331</height>
       </rect>
@@ -114,7 +114,7 @@
      <property name="geometry">
       <rect>
        <x>0</x>
-       <y>460</y>
+       <y>530</y>
        <width>369</width>
        <height>52</height>
       </rect>
@@ -165,7 +165,7 @@
      <property name="geometry">
       <rect>
        <x>0</x>
-       <y>410</y>
+       <y>480</y>
        <width>369</width>
        <height>52</height>
       </rect>
@@ -211,6 +211,52 @@
        </widget>
       </item>
      </layout>
+    </widget>
+    <widget class="QLabel" name="label_volante">
+     <property name="geometry">
+      <rect>
+       <x>600</x>
+       <y>10</y>
+       <width>71</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_volante_2">
+     <property name="geometry">
+      <rect>
+       <x>680</x>
+       <y>10</y>
+       <width>71</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>º</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
     </widget>
    </widget>
    <widget class="QPushButton" name="Conectar">
@@ -410,7 +456,7 @@
                </font>
               </property>
               <property name="text">
-               <string>1000</string>
+               <string>360</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignCenter</set>
@@ -426,7 +472,7 @@
                </font>
               </property>
               <property name="text">
-               <string>100</string>
+               <string>50</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignCenter</set>
@@ -442,7 +488,7 @@
                </font>
               </property>
               <property name="text">
-               <string>50</string>
+               <string>20</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignCenter</set>
@@ -458,7 +504,7 @@
                </font>
               </property>
               <property name="text">
-               <string>20</string>
+               <string>10</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignCenter</set>
@@ -474,7 +520,7 @@
                </font>
               </property>
               <property name="text">
-               <string>10</string>
+               <string>5</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignCenter</set>
@@ -490,7 +536,7 @@
                </font>
               </property>
               <property name="text">
-               <string>5</string>
+               <string>1</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignCenter</set>
@@ -501,7 +547,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QSlider" name="vel_giro">
+          <widget class="QSlider" name="slider_giro">
            <property name="maximum">
             <number>5</number>
            </property>
@@ -560,6 +606,65 @@
       <string>Enderezar</string>
      </property>
     </widget>
+    <widget class="QPushButton" name="reset_rel">
+     <property name="geometry">
+      <rect>
+       <x>290</x>
+       <y>60</y>
+       <width>93</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Reset centro</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_volante_4">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>100</y>
+       <width>71</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>º</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_giro_relativo">
+     <property name="geometry">
+      <rect>
+       <x>140</x>
+       <y>100</y>
+       <width>71</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
    </widget>
    <widget class="QFrame" name="frame_abs">
     <property name="enabled">
@@ -614,6 +719,11 @@
      </property>
     </widget>
    </widget>
+   <zorder>frame_conexion</zorder>
+   <zorder>frame_general</zorder>
+   <zorder>Conectar</zorder>
+   <zorder>frame_rel</zorder>
+   <zorder>frame_abs</zorder>
   </widget>
  </widget>
  <resources/>
