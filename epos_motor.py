@@ -1,7 +1,8 @@
 from common import make_can_frame
 from enum import IntEnum
 
-QC_FACTOR = 402000 / 360
+#QC_FACTOR = 402000 / 360
+QC_FACTOR = 625000 / 360
 DIGITAL_OUTPUT_3 = False
 DIGITAL_OUTPUT_4 = False
 

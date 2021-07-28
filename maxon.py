@@ -1,19 +1,18 @@
-import os
+import queue
 import struct
+import threading
+from queue import Queue
+from time import sleep
+from traceback import format_exc
 
 import yaml
-import queue
-from queue import Queue
-# import socket
-import threading
-from time import sleep
+from PyQt5.QtWidgets import QMainWindow
+
 import epos_motor
-from traceback import format_exc
-from pynput import keyboard
 from connection import Connection
-from PyQt5.QtWidgets import QApplication, QMainWindow
 from interface_maxon import Ui_InterfazMAXON
-import random
+from common import make_can_frame
+from pynput import keyboard
 
 
 class Window(QMainWindow):
@@ -26,6 +25,9 @@ class Window(QMainWindow):
 class Maxon:
     def __init__(self, main_window: Window = None):
         self.window = main_window
+        self.window.ui.frame_general.setVisible(False)
+        self.window.ui.frame_rel.setVisible(False)
+        self.window.ui.frame_abs.setVisible(False)
         self.window.ui.Conectar.clicked.connect(self.connect)
         self.window.ui.init_button.clicked.connect(self.init_device)
         self.window.ui.fault_button.clicked.connect(self.fault_reset)
@@ -40,16 +42,26 @@ class Maxon:
         self.window.ui.enderezar.clicked.connect(self.enderezar)
 
         self.window.ui.reset_rel.clicked.connect(self.reset_rel)
+        self.window.ui.speed_button.clicked.connect(self.change_speed)
+        self.window.ui.following_button.clicked.connect(self.change_following)
+        self.window.ui.reset_encoder_button.clicked.connect(self.ajustar_volante)
 
+        with open('config/config.yaml') as f:
+            parameters = yaml.load(f, Loader=yaml.FullLoader)
+        self.error_encoder = parameters['error_encoder']
+        self.window.ui.ip.setText(parameters['ip'])
+        self.window.ui.puerto.setText(str(parameters['puerto']))
+
+        self.listener_keyboard = None
+
+        self.shutdown_flag = False
         self.cobid = 3
-        # self.socket = None
         self.connection = None
         self.steering_value = 0
         self.queue = Queue()
         self.giro_relativo = 0
         self.enable_send = False
         self.freq = 50
-        self.rel_speed = 10
         self.maxon_enabled = False
         self.dig_3 = False
         self.dig_4 = False
@@ -67,6 +79,15 @@ class Maxon:
             5: 360,
         }
 
+    def change_speed(self):
+        new_speed = self.window.ui.speed_text.text()
+        self.rpm = int(new_speed)
+        [self.queue.put(frame) for frame in [make_can_frame(self.cobid, 0x6081, 0, self.rpm)]]
+
+    def change_following(self):
+        new_following = int(self.window.ui.following_text.text())
+        [self.queue.put(frame) for frame in [make_can_frame(self.cobid, 0x6065, 0, new_following)]]
+
     def decode_can(self, msg):
         try:
             COBID = (msg[2] << 8) + msg[3]
@@ -75,7 +96,7 @@ class Maxon:
                 data = struct.unpack('>h', msg[4:6])[0]
                 # print(msg)
                 value = data * 0.13
-                self.steering_value = value
+                self.steering_value = round(value - self.error_encoder, 2)
                 # self.steering_value = random.randint(-350, 350) # Para pruebas
         except Exception as e:
             pass
@@ -83,7 +104,7 @@ class Maxon:
     def connect(self):
         if self.connection is None:
             ip = self.window.ui.ip.text()
-            ip = '127.0.0.1'
+            # ip = '127.0.0.1'
             port = self.window.ui.puerto.text()
             self.connection = Connection(name='Connection', mode='tcp', ip=ip, port=int(port),
                                          deco_function=self.decode_can)
@@ -121,6 +142,8 @@ class Maxon:
 
     def init_device(self):
         [self.queue.put(frame) for frame in epos_motor.init_device(self.cobid, self.rpm)]
+        self.window.ui.speed_text.setText('5000')
+        self.window.ui.following_text.setText('2000')
 
     def turn_abs(self):
         try:
@@ -147,13 +170,12 @@ class Maxon:
         self.window.ui.label_giro_relativo.setText(str(self.giro_relativo))
 
     def update_steering(self):
-        while(True):
+        while not self.shutdown_flag:
             self.window.ui.label_volante.setText(str(self.steering_value))
-            sleep(1/10)
+            sleep(1 / 10)
 
-    def on_press_esc(self, key):
-        if key == keyboard.Key.esc:
-            return False  # stop listener
+    def ajustar_volante(self):
+        self.error_encoder += self.steering_value
 
     def enable(self):
         try:
@@ -177,56 +199,77 @@ class Maxon:
     def fault_reset(self):
         try:
             [self.queue.put(frame) for frame in epos_motor.fault_reset(self.cobid)]
+            self.window.ui.speed_text.setText('5000')
+            self.window.ui.following_text.setText('2000')
         except Exception:
             print(format_exc())
 
     def reset_rel(self):
         self.giro_relativo = 0
+        self.window.ui.label_giro_relativo.setText(str(self.giro_relativo))
 
     def rel(self):
         if not self.window.ui.frame_rel.isVisible():
             self.reset_rel()
+            self.listener_keyboard = keyboard.Listener(on_press=self.on_press)
+            self.listener_keyboard.start()
             self.window.ui.frame_rel.setVisible(True)
             self.window.ui.frame_abs.setVisible(False)
         else:
+            self.listener_keyboard.stop()
             self.window.ui.frame_rel.setVisible(False)
+
+    def on_press(self, key):
+        if key == keyboard.Key.left:
+            self.giro_izq()
+        elif key == keyboard.Key.right:
+            self.giro_dch()
+        elif key == keyboard.Key.down:
+            self.enderezar()
 
     def abs(self):
         if not self.window.ui.frame_abs.isVisible():
             self.window.ui.frame_rel.setVisible(False)
             self.window.ui.frame_abs.setVisible(True)
+            if self.listener_keyboard is not None:
+                self.listener_keyboard.stop()
         else:
             self.window.ui.frame_abs.setVisible(False)
 
-    def salidas_digitales(self):
-        lis = keyboard.Listener(on_press=self.on_press_esc)
-        lis.start()  # start to listen on a separate thread
-        while lis.is_alive():
-            os.system('cls')  # Clear console
-            print('Para encender o apagar una salida digital indique el numero de salida')
-            print('Para salir pulse Esc')
-            print('Estado de las salidas digitales:')
-            print('Digital 3: {}'.format('on' if self.dig_3 else 'off'))
-            print('Digital 4: {}'.format('on' if self.dig_4 else 'off'))
-            target = input('Introduzca salida digital: ') or 0
-            if lis.is_alive():
-                try:
-                    target = int(target)
-                    if target == 3:
-                        if self.dig_3:
-                            [self.queue.put(frame) for frame in epos_motor.disable_digital_3(self.cobid)]
-                            self.dig_3 = False
-                        else:
-                            [self.queue.put(frame) for frame in epos_motor.enable_digital_3(self.cobid)]
-                            self.dig_3 = True
-                    elif target == 4:
-                        if self.dig_4:
-                            [self.queue.put(frame) for frame in epos_motor.disable_digital_4(self.cobid)]
-                            self.dig_4 = False
-                        else:
-                            [self.queue.put(frame) for frame in epos_motor.enable_digital_4(self.cobid)]
-                            self.dig_4 = True
-                    else:
-                        raise ValueError('No existe esta salida digital')
-                except ValueError as ve:
-                    print(ve)
+    # def salidas_digitales(self):
+    #     lis = keyboard.Listener(on_press=self.on_press_esc)
+    #     lis.start()  # start to listen on a separate thread
+    #     while lis.is_alive():
+    #         os.system('cls')  # Clear console
+    #         print('Para encender o apagar una salida digital indique el numero de salida')
+    #         print('Para salir pulse Esc')
+    #         print('Estado de las salidas digitales:')
+    #         print('Digital 3: {}'.format('on' if self.dig_3 else 'off'))
+    #         print('Digital 4: {}'.format('on' if self.dig_4 else 'off'))
+    #         target = input('Introduzca salida digital: ') or 0
+    #         if lis.is_alive():
+    #             try:
+    #                 target = int(target)
+    #                 if target == 3:
+    #                     if self.dig_3:
+    #                         [self.queue.put(frame) for frame in epos_motor.disable_digital_3(self.cobid)]
+    #                         self.dig_3 = False
+    #                     else:
+    #                         [self.queue.put(frame) for frame in epos_motor.enable_digital_3(self.cobid)]
+    #                         self.dig_3 = True
+    #                 elif target == 4:
+    #                     if self.dig_4:
+    #                         [self.queue.put(frame) for frame in epos_motor.disable_digital_4(self.cobid)]
+    #                         self.dig_4 = False
+    #                     else:
+    #                         [self.queue.put(frame) for frame in epos_motor.enable_digital_4(self.cobid)]
+    #                         self.dig_4 = True
+    #                 else:
+    #                     raise ValueError('No existe esta salida digital')
+    #             except ValueError as ve:
+    #                 print(ve)
+
+    def shutdown(self):
+        self.shutdown_flag = True
+        if self.connection is not None:
+            self.connection.shutdown()

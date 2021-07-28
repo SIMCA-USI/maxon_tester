@@ -37,7 +37,7 @@ class Handler_TCPServer(socketserver.BaseRequestHandler):
             #print("{} sent:".format(self.client_address[0]))
             print(self.data)
             # just send back ACK for data arrival confirmation
-            self.request.sendall(make_can_frame(node=5, index=0x305, data=randint(-350,350)))
+            #self.request.sendall(make_can_frame(node=5, index=0x305, data=randint(-350,350)))
 
 
 if __name__ == "__main__":
