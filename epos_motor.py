@@ -2,7 +2,7 @@ from common import make_can_frame
 from enum import IntEnum
 
 #QC_FACTOR = 402000 / 360
-QC_FACTOR = 625000 / 360
+QC_FACTOR = 1 #625000 / 360
 DIGITAL_OUTPUT_3 = False
 DIGITAL_OUTPUT_4 = False
 
@@ -21,18 +21,25 @@ class EPOSCommand(IntEnum):
 def enable(node: int):
     return [
         make_can_frame(node=node, index=0x6040, data=EPOSCommand.SHUTDOWN),
+        make_can_frame(node=node, index=0x6040, data=EPOSCommand.SWITCH_ON),
         make_can_frame(node=node, index=0x6040, data=EPOSCommand.SWITCH_ON_AND_ENABLE),
         make_can_frame(node=node, index=0x6060, data=0x01)]
 
 
 def disable(node: int):
-    return [
+    return [make_can_frame(node=node, index=0x6040, data=EPOSCommand.DISABLE_OPERATION)]
 
-    ]
+
+def read_status(node: int):
+    return [make_can_frame(node=node, index=0x6041, write=False)]
+
+
+def read_position(node: int):
+    return [make_can_frame(node=node, index=0x6064, write=False)]
 
 
 def fault_reset(node: int):
-    return [make_can_frame(node=node, index=0x6040, data=0x0080),
+    return [make_can_frame(node=node, index=0x6040, data=EPOSCommand.FAULT_RESET),
             make_can_frame(node, 0x6040, 0, EPOSCommand.SHUTDOWN),
             make_can_frame(node, 0x6040, 0, EPOSCommand.SWITCH_ON_AND_ENABLE), ]
 
@@ -43,12 +50,15 @@ def set_angle_value(node: int, angle: int, absolute=False):
         return [
             make_can_frame(node=node, index=0x607A, data=qc_to_rotate),
             #make_can_frame(node=node, index=0x6040, data=0x000F),
-            make_can_frame(node=node, index=0x6040, data=0x003F)]
+            make_can_frame(node=node, index=0x6040, data=0x002F),
+            make_can_frame(node=node, index=0x6040, data=0x003F)
+        ]
     else:
         return [
             make_can_frame(node=node, index=0x607A, data=qc_to_rotate),
             # make_can_frame(node=node, index=0x6040, data=0x000F),
             # make_can_frame(node=node, index=0x6040, data=0x007F)]
+            make_can_frame(node=node, index=0x6040, data=0x006F),
             make_can_frame(node=node, index=0x6040, data=0x007F)]
 
 
@@ -95,9 +105,11 @@ def disable_digital_3(node: int):
 def init_device(node: int, rpm=0x1388):
     return [
         make_can_frame(node, 0x6040, 0, 0x0080),
+        # make_can_frame(node, 0x6060, 0, 0x08),  # operation mode=Cyclic Synchronous Position Mode
         make_can_frame(node, 0x6060, 0, 0x01),  # operation mode=profile position
         make_can_frame(node, 0x6081, 0, rpm),  # rpm speed 1-25000 = 10_000 rpm
         make_can_frame(node, 0x6040, 0, EPOSCommand.SHUTDOWN),  # ????
-        make_can_frame(node, 0x6040, 0, EPOSCommand.SWITCH_ON_AND_ENABLE),
-        make_can_frame(node, 0x2078, 2, 0x3000)  # DO configuration
+        make_can_frame(node=node, index=0x6040, data=EPOSCommand.SWITCH_ON),
+        # make_can_frame(node, 0x6040, 0, EPOSCommand.SWITCH_ON_AND_ENABLE),
+        # make_can_frame(node, 0x2078, 2, 0x3000)  # DO configuration
     ]

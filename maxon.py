@@ -13,6 +13,8 @@ from connection import Connection
 from interface_maxon import Ui_InterfazMAXON
 from common import make_can_frame
 from pynput import keyboard
+from binascii import hexlify
+from typing import Tuple
 
 
 class Window(QMainWindow):
@@ -20,6 +22,16 @@ class Window(QMainWindow):
         super(Window, self).__init__(parent)
         self.ui = Ui_InterfazMAXON()
         self.ui.setupUi(self)
+
+
+def decoder_maxon(msg) -> Tuple[bytes, int, int, int, bytes]:
+    msg = msg[2:-1]  # Se elimina el pad delantero (2) y trasero (1) de la trama
+    COBID = struct.unpack('>H', msg[0:2])[0]
+    b0 = msg[2:3]
+    index = struct.unpack('<H', msg[3:5])[0]
+    sub_index = struct.unpack('B', msg[5:6])[0]
+    data = msg[6:]
+    return msg, COBID, index, sub_index, data
 
 
 class Maxon:
@@ -55,7 +67,8 @@ class Maxon:
         self.listener_keyboard = None
 
         self.shutdown_flag = False
-        self.cobid = 3
+        self.cobid = 1
+
         self.connection = None
         self.steering_value = 0
         self.queue = Queue()
@@ -68,6 +81,8 @@ class Maxon:
         self.rpm = 5000
         self.sender_thread = threading.Thread(target=self.send, daemon=True, name='sender-thread')
         self.sender_thread.start()
+        self.status_thread = threading.Thread(target=self.read_status, daemon=True, name='sender-thread')
+        self.status_thread.start()
         self.update_volante = threading.Thread(target=self.update_steering, daemon=True, name='update-steering')
         self.update_volante.start()
         self.dict_slider = {
@@ -79,6 +94,13 @@ class Maxon:
             5: 360,
         }
 
+    def read_status(self):
+        while not self.shutdown_flag:
+            if self.connection is not None and self.connection.connected:
+                [self.queue.put(frame) for frame in [make_can_frame(self.cobid, 0x6041, 0, 0, write=False)]]
+                [self.queue.put(frame) for frame in [make_can_frame(self.cobid, 0x6064, 0, 0, write=False)]]
+            sleep(1)
+
     def change_speed(self):
         new_speed = self.window.ui.speed_text.text()
         self.rpm = int(new_speed)
@@ -88,9 +110,10 @@ class Maxon:
         new_following = int(self.window.ui.following_text.text())
         [self.queue.put(frame) for frame in [make_can_frame(self.cobid, 0x6065, 0, new_following)]]
 
-    def decode_can(self, msg):
+    def decode_can(self, msg: bytes):
         try:
-            COBID = (msg[2] << 8) + msg[3]
+            COBID = struct.unpack('>h', msg[2:4])[0]
+            print(COBID)
             if COBID == 0x305:
                 # os.system('cls')
                 data = struct.unpack('>h', msg[4:6])[0]
@@ -98,8 +121,24 @@ class Maxon:
                 value = data * 0.13
                 self.steering_value = round(value - self.error_encoder, 2)
                 # self.steering_value = random.randint(-350, 350) # Para pruebas
+            elif 0x580 < COBID < 0x590 or 0x80 < COBID < 0x90:
+                print(f'Maxon {COBID & 0xF}')
+                msg, COBID, index, sub_index, data = decoder_maxon(msg)
+                # print(f'COBID {hex(COBID)} {hexlify(msg)}')
+                print(f'COBID {hex(COBID)}')
+                print(f'index {hex(index)}')
+                print(f'sub_index {hex(sub_index)}')
+                print(f'data {hexlify(data)}\n')
+                if index == 0x6041:
+                    status = struct.unpack('>H', data[:-2])[0]
+                    print(f'Status {status}')
+                elif index == 0x6064:
+                    position = struct.unpack('<i', data)[0]
+                    print(f'Position {position}')
+            else:
+                print(f'COBID{hex(COBID)} {hexlify(msg)}')
         except Exception as e:
-            pass
+            print(e)
 
     def connect(self):
         if self.connection is None:
