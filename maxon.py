@@ -83,7 +83,7 @@ class Maxon:
     def connect(self):
         if self.connection is None:
             ip = self.window.ui.ip.text()
-            ip = '127.0.0.1'
+            # ip = '127.0.0.1'
             port = self.window.ui.puerto.text()
             self.connection = Connection(name='Connection', mode='tcp', ip=ip, port=int(port),
                                          deco_function=self.decode_can)
