@@ -12,6 +12,7 @@ def main():
         app.exec_()
     except KeyboardInterrupt:
         print('Keyboard interrupt')
+        maxon.shutdown()
 
 
 if __name__ == '__main__':
