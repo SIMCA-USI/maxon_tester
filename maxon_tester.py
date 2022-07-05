@@ -1,5 +1,6 @@
 from maxon import Maxon, Window
-from PyQt5 import QtWidgets
+# from PyQt5 import QtWidgets
+from PySide2 import QtWidgets
 import sys
 
 

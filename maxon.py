@@ -10,10 +10,10 @@ from time import sleep
 from traceback import format_exc
 from pynput import keyboard
 from connection import Connection
-from PyQt5.QtWidgets import QApplication, QMainWindow
-from interface_maxon import Ui_InterfazMAXON
-import utils.epos as maxon
-import utils.epos4 as epos4
+# from PyQt5.QtWidgets import QApplication, QMainWindow
+# from interface_maxon import Ui_InterfazMAXON
+from PySide2.QtWidgets import *
+from new_interface_maxon import Ui_InterfazMAXON
 import random
 import networkx as nx
 from utils.utils import make_can_msg
@@ -45,8 +45,7 @@ class Maxon:
 
         self.window.ui.reset_rel.clicked.connect(self.reset_rel)
 
-        self.cobid = 2
-        self.epos_dictionary = {}
+        self.cobid = 3
         # self.socket = None
         self.connection = None
         self.steering_value = 0
@@ -104,14 +103,17 @@ class Maxon:
             self.enable_send = True
             self.window.ui.Conectar.setText('Desconectar')
             self.window.ui.frame_general.setVisible(True)
+            self.window.ui.frame_control.setVisible(True)
             # self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # self.socket.bind(('', self.port + 1))
         else:
+            print(f"añsldkjfañlsdjfalsdf {self.connection}")
             self.enable_send = False
             self.connection.shutdown()
             self.connection = None
             self.window.ui.Conectar.setText('Conectar')
             self.window.ui.frame_general.setVisible(False)
+            self.window.ui.frame_control.setVisible(False)
 
     def send(self):
         while not self.shutdown_flag:
