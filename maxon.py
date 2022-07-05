@@ -14,6 +14,8 @@ from connection import Connection
 # from interface_maxon import Ui_InterfazMAXON
 from PySide2.QtWidgets import *
 from new_interface_maxon import Ui_InterfazMAXON
+import utils.epos as maxon
+import utils.epos4 as epos4
 import random
 import networkx as nx
 from utils.utils import make_can_msg
@@ -45,7 +47,13 @@ class Maxon:
 
         self.window.ui.reset_rel.clicked.connect(self.reset_rel)
 
-        self.cobid = 3
+        self.window.ui.frame_general.setVisible(False)
+        self.window.ui.frame_control.setVisible(False)
+        self.window.ui.frame_rel.setVisible(False)
+        self.window.ui.frame_abs.setVisible(False)
+
+        self.cobid = 2
+        self.epos_dictionary = {}
         # self.socket = None
         self.connection = None
         self.steering_value = 0
