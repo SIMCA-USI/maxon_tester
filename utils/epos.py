@@ -145,10 +145,10 @@ def configuration(node: int, graph: nx.classes.digraph, status_word: int):
 def set_digital(node: int, outputs: dict = None):
     if outputs is None:
         outputs = {1: False, 2: False, 3: False, 4: False}
-    if not outputs.keys() >= {1, 2, 3, 4}:
-        raise ValueError(f'Digital outputs keys missing {outputs.keys()} , required 1,2,3,4')
-    out = ((8 if outputs.get(1) else 0) + (4 if outputs.get(2) else 0) + (2 if outputs.get(3) else 0) + (
-        1 if outputs.get(4) else 0)) << 12
+    # if not outputs.keys() >= {1, 2, 3, 4}:
+    #     raise ValueError(f'Digital outputs keys missing {outputs.keys()} , required 1,2,3,4')
+    out = ((8 if outputs.get(1, False) else 0) + (4 if outputs.get(2, False) else 0) + (2 if outputs.get(3, False) else 0) + (
+        1 if outputs.get(4, False) else 0)) << 12
     return [make_can_msg(node=node, index=0x2078, sub_index=0x02, data=0xffff),
             make_can_msg(node=node, index=0x2078, sub_index=0x01, data=out)]
 

@@ -386,7 +386,7 @@ class Ui_InterfazMAXON(object):
         self.label_fault = QLabel(self.frame_fault)
         self.label_fault.setObjectName(u"label_fault")
         self.label_fault.setFont(font)
-        self.label_fault.setStyleSheet(u"border-radius: 40px;\n"
+        self.label_fault.setStyleSheet(u"border-radius: 38px;\n"
 "color: rgb(0, 0, 0);\n"
 "background-color: rgb(244, 244, 244);\n"
 "border: 2px solid black;")
@@ -532,7 +532,7 @@ class Ui_InterfazMAXON(object):
         self.comboBox_2.setItemText(1, QCoreApplication.translate("InterfazMAXON", u"Maxon", None))
 
         self.label_3.setText(QCoreApplication.translate("InterfazMAXON", u"IP:", None))
-        self.ip.setText(QCoreApplication.translate("InterfazMAXON", u"192.168.0.7", None))
+        self.ip.setText(QCoreApplication.translate("InterfazMAXON", u"192.168.0.8", None))
         self.label_4.setText(QCoreApplication.translate("InterfazMAXON", u"Puerto:", None))
         self.puerto.setText(QCoreApplication.translate("InterfazMAXON", u"10001", None))
         self.label_14.setText(QCoreApplication.translate("InterfazMAXON", u"COBID", None))

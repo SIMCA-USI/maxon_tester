@@ -47,11 +47,16 @@ class Maxon:
 
         self.window.ui.reset_rel.clicked.connect(self.reset_rel)
 
+        self.window.ui.pushButton_openabled.clicked.connect(self.operation_mode)
+        self.window.ui.pushButton_swon.clicked.connect(self.switch_on_mode)
+        self.window.ui.pushButton_ready.clicked.connect(self.ready_mode)
+        self.window.ui.pushButton_swondis.clicked.connect(self.switch_disable_mode)
+
         self.window.ui.frame_general.setVisible(False)
         self.window.ui.frame_control.setVisible(False)
         self.window.ui.frame_rel.setVisible(False)
         self.window.ui.frame_abs.setVisible(False)
-
+        self.device_type = 'epos4'
         self.cobid = 2
         self.epos_dictionary = {}
         # self.socket = None
@@ -86,7 +91,54 @@ class Maxon:
         }
 
     def get_device(self):
+        if self.device_type == 'EPOS 4':
+            return epos4
+        elif self.device_type == 'Maxon':
+            return maxon
         return epos4
+
+    def operation_mode(self):
+        self.update_state(target=self.get_device().EPOSStatus.Operation_enabled)
+        self.change_frame_color(button=4)
+
+    def switch_on_mode(self):
+        self.update_state(target=self.get_device().EPOSStatus.Switched_on)
+        self.change_frame_color(button=3)
+
+    def switch_disable_mode(self):
+        self.update_state(target=self.get_device().EPOSStatus.Switch_on_disabled)
+        self.change_frame_color(button=1)
+
+    def ready_mode(self):
+        self.update_state(target=self.get_device().EPOSStatus.Ready_to_switch_on)
+        self.change_frame_color(button=2)
+
+    def change_frame_color(self, button=0):
+        if button == 1:
+            self.window.ui.frame_ready.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_openabled.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_swon.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_swondis.setStyleSheet(u"background-color: rgb(85, 255, 127);")
+        elif button == 2:
+            self.window.ui.frame_ready.setStyleSheet(u"background-color: rgb(85, 255, 127);")
+            self.window.ui.frame_openabled.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_swon.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_swondis.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+        elif button == 3:
+            self.window.ui.frame_ready.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_openabled.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_swon.setStyleSheet(u"background-color: rgb(85, 255, 127);")
+            self.window.ui.frame_swondis.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+        elif button == 4:
+            self.window.ui.frame_ready.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_openabled.setStyleSheet(u"background-color: rgb(85, 255, 127);")
+            self.window.ui.frame_swon.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_swondis.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+        else:
+            self.window.ui.frame_ready.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_openabled.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_swon.setStyleSheet(u"background-color: rgb(244, 244, 244);")
+            self.window.ui.frame_swondis.setStyleSheet(u"background-color: rgb(244, 244, 244);")
 
     def decode_can(self, msg):
         try:
@@ -106,22 +158,35 @@ class Maxon:
             ip = self.window.ui.ip.text()
             # ip = '127.0.0.1'
             port = self.window.ui.puerto.text()
+            self.cobid = int(self.window.ui.comboBox.currentText())
+            self.device_type = self.window.ui.comboBox_2.currentText()
+
             self.connection = Connection(name='Connection', mode='tcp', ip=ip, port=int(port),
                                          deco_function=self.decode_can)
             self.enable_send = True
             self.window.ui.Conectar.setText('Desconectar')
             self.window.ui.frame_general.setVisible(True)
             self.window.ui.frame_control.setVisible(True)
+            self.enable_disable_conect(False)
             # self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # self.socket.bind(('', self.port + 1))
         else:
-            print(f"añsldkjfañlsdjfalsdf {self.connection}")
+            self.update_state(target=self.get_device().EPOSStatus.Switched_on)
+            sleep(0.5)
             self.enable_send = False
             self.connection.shutdown()
             self.connection = None
             self.window.ui.Conectar.setText('Conectar')
             self.window.ui.frame_general.setVisible(False)
             self.window.ui.frame_control.setVisible(False)
+            self.enable_disable_conect(True)
+            self.change_frame_color(button=0)
+
+    def enable_disable_conect(self, enable):
+        self.window.ui.comboBox.setEnabled(enable)
+        self.window.ui.comboBox_2.setEnabled(enable)
+        self.window.ui.ip.setEnabled(enable)
+        self.window.ui.puerto.setEnabled(enable)
 
     def send(self):
         while not self.shutdown_flag:
@@ -217,22 +282,24 @@ class Maxon:
             return False  # stop listener
 
     def enable(self):
-        device = self.get_device()
-        print('Enable ', self.cobid)
-        try:
-            self.update_state(target=device.EPOSStatus.Operation_enabled)
-        #     if not self.maxon_enabled:
-        #         [self.queue.put(frame) for frame in epos_motor.init_device(self.cobid)]
-        #         [self.queue.put(frame) for frame in epos_motor.enable(self.cobid)]
-        #         [self.queue.put(frame) for frame in epos_motor.enable_digital_4(self.cobid)]
-        #         self.maxon_enabled = True
-        except Exception:
-            print(format_exc())
+        if self.device_type == 'Maxon':
+            try:
+                [self.queue.put(frame) for frame in self.get_device().set_digital(self.cobid, {4: True})]
+                # self.update_state(target=device.EPOSStatus.Operation_enabled)
+                #     if not self.maxon_enabled:
+                #         [self.queue.put(frame) for frame in epos_motor.init_device(self.cobid)]
+                #         [self.queue.put(frame) for frame in epos_motor.enable(self.cobid)]
+                #         [self.queue.put(frame) for frame in epos_motor.enable_digital_4(self.cobid)]
+                #         self.maxon_enabled = True
+            except Exception:
+                print(format_exc())
+        else:
+            print('No se puede activar el electroiman con una epos4')
 
     def disable(self):
-        device = self.get_device()
         try:
-            self.update_state(target=device.EPOSStatus.Switched_on)
+            [self.queue.put(frame) for frame in self.get_device().set_digital(self.cobid, {4: False})]
+            # self.update_state(target=device.EPOSStatus.Switched_on)
             # if self.maxon_enabled:
             #     [self.queue.put(frame) for frame in epos_motor.disable(self.cobid)]
             #     [self.queue.put(frame) for frame in epos_motor.disable_digital_4(self.cobid)]
@@ -242,12 +309,14 @@ class Maxon:
 
     def fault_reset(self):
         try:
+            print('Send fault reset')
             [self.queue.put(frame) for frame in self.get_device().fault_reset(self.cobid)]
         except Exception:
             print(format_exc())
 
     def reset_rel(self):
         self.giro_relativo = 0
+        self.window.ui.label_giro_relativo.setText(str(self.giro_relativo))
 
     def rel(self):
         if not self.window.ui.frame_rel.isVisible():
