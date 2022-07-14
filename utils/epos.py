@@ -147,8 +147,9 @@ def set_digital(node: int, outputs: dict = None):
         outputs = {1: False, 2: False, 3: False, 4: False}
     # if not outputs.keys() >= {1, 2, 3, 4}:
     #     raise ValueError(f'Digital outputs keys missing {outputs.keys()} , required 1,2,3,4')
-    out = ((8 if outputs.get(1, False) else 0) + (4 if outputs.get(2, False) else 0) + (2 if outputs.get(3, False) else 0) + (
-        1 if outputs.get(4, False) else 0)) << 12
+    out = ((8 if outputs.get(1, False) else 0) + (4 if outputs.get(2, False) else 0) + (
+        2 if outputs.get(3, False) else 0) + (
+               1 if outputs.get(4, False) else 0)) << 12
     return [make_can_msg(node=node, index=0x2078, sub_index=0x02, data=0xffff),
             make_can_msg(node=node, index=0x2078, sub_index=0x01, data=out)]
 
@@ -224,11 +225,19 @@ def set_torque(node: int, torque: int):
 
 
 def init_device(node: int, mode: str = 'PPM', rpm: int = 5000):
-    if not 1 < rpm < 50000:
+    if not 1 < rpm <= 5000:
         raise ValueError('RPM out of range')
     return [
         make_can_msg(node, 0x6040, 0, EPOSCommand.FAULT_RESET),
         make_can_msg(node, 0x6060, 0, mode_epos.get(mode)),  # operation mode
+        make_can_msg(node, 0x6081, 0, rpm),  # rpm speed 1-25000 = 10_000 rpm
+    ]
+
+
+def set_speed(node: int, rpm=5000):
+    if not 1 < rpm <= 5000:
+        raise ValueError('RPM out of range')
+    return [
         make_can_msg(node, 0x6081, 0, rpm),  # rpm speed 1-25000 = 10_000 rpm
     ]
 

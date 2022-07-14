@@ -52,6 +52,8 @@ class Maxon:
         self.window.ui.pushButton_ready.clicked.connect(self.ready_mode)
         self.window.ui.pushButton_swondis.clicked.connect(self.switch_disable_mode)
 
+        self.window.ui.speed_button.clicked.connect(self.set_speed)
+
         self.window.ui.frame_general.setVisible(False)
         self.window.ui.frame_control.setVisible(False)
         self.window.ui.frame_rel.setVisible(False)
@@ -333,37 +335,41 @@ class Maxon:
         else:
             self.window.ui.frame_abs.setVisible(False)
 
-    # def salidas_digitales(self):
-    #     lis = keyboard.Listener(on_press=self.on_press_esc)
-    #     lis.start()  # start to listen on a separate thread
-    #     while lis.is_alive():
-    #         os.system('cls')  # Clear console
-    #         print('Para encender o apagar una salida digital indique el numero de salida')
-    #         print('Para salir pulse Esc')
-    #         print('Estado de las salidas digitales:')
-    #         print('Digital 3: {}'.format('on' if self.dig_3 else 'off'))
-    #         print('Digital 4: {}'.format('on' if self.dig_4 else 'off'))
-    #         target = input('Introduzca salida digital: ') or 0
-    #         if lis.is_alive():
-    #             try:
-    #                 target = int(target)
-    #                 if target == 3:
-    #                     if self.dig_3:
-    #                         [self.queue.put(frame) for frame in epos_motor.disable_digital_3(self.cobid)]
-    #                         self.dig_3 = False
-    #                     else:
-    #                         [self.queue.put(frame) for frame in epos_motor.enable_digital_3(self.cobid)]
-    #                         self.dig_3 = True
-    #                 elif target == 4:
-    #                     if self.dig_4:
-    #                         [self.queue.put(frame) for frame in epos_motor.disable_digital_4(self.cobid)]
-    #                         self.dig_4 = False
-    #                     else:
-    #                         [self.queue.put(frame) for frame in epos_motor.enable_digital_4(self.cobid)]
-    #                         self.dig_4 = True
-    #                 else:
-    #                     raise ValueError('No existe esta salida digital')
-    #             except ValueError as ve:
-    #                 print(ve)
-    def shutdown(self):
-        self.shutdown_flag = True
+    def set_speed(self):
+        [self.queue.put(frame) for frame in
+         self.get_device().set_speed(self.cobid, int(self.window.ui.speed_text.text()))]
+
+        # def salidas_digitales(self):
+        #     lis = keyboard.Listener(on_press=self.on_press_esc)
+        #     lis.start()  # start to listen on a separate thread
+        #     while lis.is_alive():
+        #         os.system('cls')  # Clear console
+        #         print('Para encender o apagar una salida digital indique el numero de salida')
+        #         print('Para salir pulse Esc')
+        #         print('Estado de las salidas digitales:')
+        #         print('Digital 3: {}'.format('on' if self.dig_3 else 'off'))
+        #         print('Digital 4: {}'.format('on' if self.dig_4 else 'off'))
+        #         target = input('Introduzca salida digital: ') or 0
+        #         if lis.is_alive():
+        #             try:
+        #                 target = int(target)
+        #                 if target == 3:
+        #                     if self.dig_3:
+        #                         [self.queue.put(frame) for frame in epos_motor.disable_digital_3(self.cobid)]
+        #                         self.dig_3 = False
+        #                     else:
+        #                         [self.queue.put(frame) for frame in epos_motor.enable_digital_3(self.cobid)]
+        #                         self.dig_3 = True
+        #                 elif target == 4:
+        #                     if self.dig_4:
+        #                         [self.queue.put(frame) for frame in epos_motor.disable_digital_4(self.cobid)]
+        #                         self.dig_4 = False
+        #                     else:
+        #                         [self.queue.put(frame) for frame in epos_motor.enable_digital_4(self.cobid)]
+        #                         self.dig_4 = True
+        #                 else:
+        #                     raise ValueError('No existe esta salida digital')
+        #             except ValueError as ve:
+        #                 print(ve)
+        def shutdown(self):
+            self.shutdown_flag = True

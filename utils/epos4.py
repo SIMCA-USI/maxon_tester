@@ -186,11 +186,19 @@ def set_torque(node: int, torque: int):
 
 
 def init_device(node: int, mode: str = 'PPM', rpm: int = 5000):
-    if not 1 < rpm < 50000:
+    if not 1 < rpm <= 5000:
         raise ValueError('RPM out of range')
     return [
         make_can_msg(node, 0x6040, 0, EPOSCommand.FAULT_RESET),
         make_can_msg(node, 0x6060, 0, mode_epos.get(mode)),  # operation mode
+        make_can_msg(node, 0x6081, 0, rpm),  # rpm speed 1-25000 = 10_000 rpm
+    ]
+
+
+def set_speed(node: int, rpm=5000):
+    if not 1 < rpm <= 5000:
+        raise ValueError('RPM out of range')
+    return [
         make_can_msg(node, 0x6081, 0, rpm),  # rpm speed 1-25000 = 10_000 rpm
     ]
 
