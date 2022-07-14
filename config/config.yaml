@@ -1,3 +1,4 @@
 ip: 192.168.0.7
 puerto: 10001
 error_encoder: 102
+cobid: 1

@@ -31,6 +31,7 @@ def decoder_maxon(msg) -> Tuple[bytes, int, int, int, bytes]:
     index = struct.unpack('<H', msg[3:5])[0]
     sub_index = struct.unpack('B', msg[5:6])[0]
     data = msg[6:]
+    # print(f'{COBID} {index} {sub_index} {len(data)} {data}')
     return msg, COBID, index, sub_index, data
 
 
@@ -58,6 +59,9 @@ class Maxon:
         self.window.ui.following_button.clicked.connect(self.change_following)
         self.window.ui.reset_encoder_button.clicked.connect(self.ajustar_volante)
 
+        self.window.ui.press.clicked.connect(self.press)
+        self.window.ui.release.clicked.connect(self.release)
+
         with open('config/config.yaml') as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
         self.error_encoder = parameters['error_encoder']
@@ -67,7 +71,7 @@ class Maxon:
         self.listener_keyboard = None
 
         self.shutdown_flag = False
-        self.cobid = 1
+        self.cobid = parameters['cobid']
 
         self.connection = None
         self.steering_value = 0
@@ -82,9 +86,9 @@ class Maxon:
         self.sender_thread = threading.Thread(target=self.send, daemon=True, name='sender-thread')
         self.sender_thread.start()
         self.status_thread = threading.Thread(target=self.read_status, daemon=True, name='sender-thread')
-        self.status_thread.start()
+        # self.status_thread.start()
         self.update_volante = threading.Thread(target=self.update_steering, daemon=True, name='update-steering')
-        self.update_volante.start()
+        # self.update_volante.start()
         self.dict_slider = {
             0: 1,
             1: 5,
@@ -99,7 +103,8 @@ class Maxon:
             if self.connection is not None and self.connection.connected:
                 [self.queue.put(frame) for frame in [make_can_frame(self.cobid, 0x6041, 0, 0, write=False)]]
                 [self.queue.put(frame) for frame in [make_can_frame(self.cobid, 0x6064, 0, 0, write=False)]]
-            sleep(1)
+                [self.queue.put(frame) for frame in [make_can_frame(self.cobid, 0x30D3, 0x01, 0, write=False)]]
+            sleep(1 / 5)
 
     def change_speed(self):
         new_speed = self.window.ui.speed_text.text()
@@ -113,7 +118,7 @@ class Maxon:
     def decode_can(self, msg: bytes):
         try:
             COBID = struct.unpack('>h', msg[2:4])[0]
-            print(COBID)
+            print(hex(COBID))
             if COBID == 0x305:
                 # os.system('cls')
                 data = struct.unpack('>h', msg[4:6])[0]
@@ -122,21 +127,28 @@ class Maxon:
                 self.steering_value = round(value - self.error_encoder, 2)
                 # self.steering_value = random.randint(-350, 350) # Para pruebas
             elif 0x580 < COBID < 0x590 or 0x80 < COBID < 0x90:
-                print(f'Maxon {COBID & 0xF}')
+                # print(f'Maxon {COBID & 0xF}') #TODO
                 msg, COBID, index, sub_index, data = decoder_maxon(msg)
                 # print(f'COBID {hex(COBID)} {hexlify(msg)}')
-                print(f'COBID {hex(COBID)}')
-                print(f'index {hex(index)}')
-                print(f'sub_index {hex(sub_index)}')
-                print(f'data {hexlify(data)}\n')
+                # print(f'COBID {hex(COBID)}')
+                # print(f'index {hex(index)}')
+                # print(f'sub_index {hex(sub_index)}')
+                # print(f'data {hexlify(data)}\n')
                 if index == 0x6041:
-                    status = struct.unpack('>H', data[:-2])[0]
-                    print(f'Status {status}')
+                    status = struct.unpack('>H', data[:2])[0]
+                    print(status)
                 elif index == 0x6064:
                     position = struct.unpack('<i', data)[0]
-                    print(f'Position {position}')
+                    # print(f'Position {position}')
+                    self.window.ui.label_position.setText(str(position))
+                elif index == 0x30D3:
+                    if sub_index == 0x01:
+                        velocidad = struct.unpack('<i', data)[0]
+                        self.window.ui.label_rpm.setText(str(velocidad))
+                        # print(f'Velocidad {velocidad}')
             else:
-                print(f'COBID{hex(COBID)} {hexlify(msg)}')
+                pass
+                # print(f'COBID{hex(COBID)} {hexlify(msg)}')
         except Exception as e:
             print(e)
 
@@ -158,6 +170,8 @@ class Maxon:
             self.connection = None
             self.window.ui.Conectar.setText('Conectar')
             self.window.ui.frame_general.setVisible(False)
+            self.window.ui.frame_rel.setVisible(False)
+            self.window.ui.frame_abs.setVisible(False)
 
     def send(self):
         while True:
@@ -167,6 +181,7 @@ class Maxon:
                     # if self._log_send.value:
                     #     self.logger.debug(f"{hexlify(msg)} --> {self.ip.value}:{self.port.value}")
                     assert len(msg) == 13
+                    print('sent')
                     self.connection.send(msg)
                     # self.socket.sendto(msg, (self.ip, self.port))
                 sleep(1 / self.freq)
@@ -183,6 +198,18 @@ class Maxon:
         [self.queue.put(frame) for frame in epos_motor.init_device(self.cobid, self.rpm)]
         self.window.ui.speed_text.setText('5000')
         self.window.ui.following_text.setText('2000')
+
+    def press(self):
+        try:
+            [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, 1200, True)]
+        except Exception:
+            pass
+
+    def release(self):
+        try:
+            [self.queue.put(frame) for frame in epos_motor.set_angle_value(self.cobid, 0, True)]
+        except Exception:
+            pass
 
     def turn_abs(self):
         try:
@@ -221,7 +248,7 @@ class Maxon:
             if not self.maxon_enabled:
                 [self.queue.put(frame) for frame in epos_motor.init_device(self.cobid)]
                 [self.queue.put(frame) for frame in epos_motor.enable(self.cobid)]
-                [self.queue.put(frame) for frame in epos_motor.enable_digital_4(self.cobid)]
+                [self.queue.put(frame) for frame in epos_motor.enable_digital_1(self.cobid)]
                 self.maxon_enabled = True
         except Exception:
             print(format_exc())
@@ -230,13 +257,14 @@ class Maxon:
         try:
             if self.maxon_enabled:
                 [self.queue.put(frame) for frame in epos_motor.disable(self.cobid)]
-                [self.queue.put(frame) for frame in epos_motor.disable_digital_4(self.cobid)]
+                [self.queue.put(frame) for frame in epos_motor.disable_digital_1(self.cobid)]
                 self.maxon_enabled = False
         except Exception:
             print(format_exc())
 
     def fault_reset(self):
         try:
+            print(self.cobid)
             [self.queue.put(frame) for frame in epos_motor.fault_reset(self.cobid)]
             self.window.ui.speed_text.setText('5000')
             self.window.ui.following_text.setText('2000')
