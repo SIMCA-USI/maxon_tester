@@ -276,7 +276,7 @@ class Maxon:
 
     def update_steering(self):
         while not self.shutdown_flag:
-            self.window.ui.label_volante.setText(str(self.steering_value))
+            self.window.ui.label_volante.setText(str(round(self.steering_value, 2)))
             sleep(1 / 10)
 
     def on_press_esc(self, key):
